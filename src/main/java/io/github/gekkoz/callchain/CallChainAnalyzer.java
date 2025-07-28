@@ -1,4 +1,4 @@
-package com.github.callchain;
+package io.github.gekkoz.callchain;
 
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;

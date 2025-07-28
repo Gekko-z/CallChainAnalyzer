@@ -1,4 +1,5 @@
-package com.github.callchain;
+package io.github.gekkoz.callchain;
+
 
 import java.util.HashSet;
 import java.util.List;
@@ -28,7 +29,7 @@ public class Main {
 
         try {
             long startTime = System.currentTimeMillis();
-            com.github.callchain.CallChainAnalyzer analyzer = new com.github.callchain.CallChainAnalyzer(projectPath, searchType, searchKeywork, debug);
+            CallChainAnalyzer analyzer = new CallChainAnalyzer(projectPath, searchType, searchKeywork, debug);
             Map<String, List<List<String>>> allCallChains = analyzer.findAllCallChainsToRestController(searchKeywork);
             long endTime = System.currentTimeMillis();
 
