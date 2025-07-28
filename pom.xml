@@ -5,11 +5,11 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.gekko-z.callchain</groupId>
+    <groupId>io.github.gekko-z</groupId>
     <artifactId>call-chain-analyzer</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 
-    <name>io.github.gekko-z.callchain:call-chain-analyzer</name>
+    <name>io.github.gekko-z:call-chain-analyzer</name>
     <description>A Java tool for analyzing call chains in Spring projects using JavaParser</description>
     <url>https://github.com/Gekko-z/CallChainAnalyzer</url>
 
@@ -59,21 +59,34 @@
         </dependency>
     </dependencies>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
+<!--    <repositories>-->
 <!--        <repository>-->
-<!--            <id>github</id>-->
-<!--            <name>GitHub Gekko-z Apache Maven Packages</name>-->
-<!--            <url>https://maven.pkg.github.com/Gekko-z/CallChainAnalyzer</url>-->
+<!--            <name>Central Portal Snapshots</name>-->
+<!--            <id>central-portal-snapshots</id>-->
+<!--            <url>https://central.sonatype.com/repository/maven-snapshots/</url>-->
+<!--            <releases>-->
+<!--                <enabled>false</enabled>-->
+<!--            </releases>-->
+<!--            <snapshots>-->
+<!--                <enabled>true</enabled>-->
+<!--            </snapshots>-->
 <!--        </repository>-->
-    </distributionManagement>
+<!--    </repositories>-->
+<!--    <distributionManagement>-->
+<!--        <snapshotRepository>-->
+<!--            <id>sonatype</id>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
+<!--        <repository>-->
+<!--            <id>sonatype</id>-->
+<!--            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
+<!--        </repository>-->
+<!--&lt;!&ndash;        <repository>&ndash;&gt;-->
+<!--&lt;!&ndash;            <id>github</id>&ndash;&gt;-->
+<!--&lt;!&ndash;            <name>GitHub Gekko-z Apache Maven Packages</name>&ndash;&gt;-->
+<!--&lt;!&ndash;            <url>https://maven.pkg.github.com/Gekko-z/CallChainAnalyzer</url>&ndash;&gt;-->
+<!--&lt;!&ndash;        </repository>&ndash;&gt;-->
+<!--    </distributionManagement>-->
 
     <build>
         <plugins>
@@ -94,7 +107,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>io.github.gekkoz.callchain.Main</mainClass>
+                            <mainClass>io.github.gekkoz.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -114,7 +127,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>io.github.gekkoz.callchain.Main</mainClass>
+                                    <mainClass>io.github.gekkoz.Main</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
@@ -145,14 +158,10 @@
                 <configuration>
                     <source>8</source>
                     <detectJavaApiLink>false</detectJavaApiLink>
-<!--                    <additionalOptions>-->
-<!--                        <additionalOption>-Xdoclint:none</additionalOption>-->
-<!--                    </additionalOptions>-->
                 </configuration>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>jar</goal>
                         </goals>
@@ -176,16 +185,60 @@
                 </executions>
             </plugin>
 
+<!--            &lt;!&ndash; 生成MD5校验文件 &ndash;&gt;-->
+<!--            <plugin>-->
+<!--                <groupId>net.ju-n.maven.plugins</groupId>-->
+<!--                <artifactId>checksum-maven-plugin</artifactId>-->
+<!--                <version>1.4</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>checksum-maven-plugin-files</id>-->
+<!--                        <phase>package</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>files</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--                <configuration>-->
+<!--                    <fileSets>-->
+<!--                        <fileSet>-->
+<!--                            <directory>${project.build.directory}</directory>-->
+<!--                            <includes>-->
+<!--                                <include>*.jar</include>-->
+<!--                                <include>*.pom</include>-->
+<!--                            </includes>-->
+<!--                        </fileSet>-->
+<!--                    </fileSets>-->
+<!--                    <algorithms>-->
+<!--                        <algorithm>SHA-1</algorithm>-->
+<!--                        <algorithm>MD5</algorithm>-->
+<!--                    </algorithms>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
+
+
+
             <!-- Nexus Staging plugin -->
+<!--            <plugin>-->
+<!--                <groupId>org.sonatype.plugins</groupId>-->
+<!--                <artifactId>nexus-staging-maven-plugin</artifactId>-->
+<!--                <version>1.6.13</version>-->
+<!--                <extensions>true</extensions>-->
+<!--                <configuration>-->
+<!--                    <serverId>ossrh</serverId>-->
+<!--                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>-->
+<!--                    <autoReleaseAfterClose>true</autoReleaseAfterClose>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
             <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>1.6.13</version>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.8.0</version>
                 <extensions>true</extensions>
                 <configuration>
-                    <serverId>ossrh</serverId>
-                    <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
-                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>true</autoPublish>
+                    <waitUntil>published</waitUntil>
                 </configuration>
             </plugin>
         </plugins>

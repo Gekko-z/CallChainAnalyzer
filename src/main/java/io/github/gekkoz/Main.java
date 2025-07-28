@@ -1,4 +1,4 @@
-package io.github.gekkoz.callchain;
+package io.github.gekkoz;
 
 
 import java.util.HashSet;
