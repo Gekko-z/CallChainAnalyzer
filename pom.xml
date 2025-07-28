@@ -40,6 +40,14 @@
         </dependency>
     </dependencies>
 
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Gekko-z Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/Gekko-z/CallChainAnalyzer</url>
+        </repository>
+    </distributionManagement>
+
     <build>
         <plugins>
             <plugin>
