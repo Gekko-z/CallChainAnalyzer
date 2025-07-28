@@ -29,7 +29,7 @@
    mkdir -p temp && cd temp
    jar -xf ../lib/javaparser-core-3.25.5.jar
    cp -r ../target/classes/* .
-   jar cfe ../call-chain-analyzer.jar com.github.callchain.Main .
+   jar cfe ../call-chain-analyzer.jar io.github.gekko-z.callchain.Main .
    cd ..
    ```
 

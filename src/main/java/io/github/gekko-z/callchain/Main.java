@@ -28,7 +28,7 @@ public class Main {
 
         try {
             long startTime = System.currentTimeMillis();
-            CallChainAnalyzer analyzer = new CallChainAnalyzer(projectPath, searchType, searchKeywork, debug);
+            com.github.callchain.CallChainAnalyzer analyzer = new com.github.callchain.CallChainAnalyzer(projectPath, searchType, searchKeywork, debug);
             Map<String, List<List<String>>> allCallChains = analyzer.findAllCallChainsToRestController(searchKeywork);
             long endTime = System.currentTimeMillis();
 
