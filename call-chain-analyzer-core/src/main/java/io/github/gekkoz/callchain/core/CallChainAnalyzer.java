@@ -1,21 +1,24 @@
-package io.github.gekkoz;
+package io.github.gekkoz.callchain.core;
 
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
-import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
-import com.github.javaparser.ParserConfiguration;
+import io.github.gekkoz.callchain.core.descriptor.ControllerMethodDescriptor;
+import io.github.gekkoz.callchain.core.descriptor.MethodDescriptor;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 主类，用于分析Spring项目中的调用链。
@@ -36,7 +39,7 @@ public class CallChainAnalyzer {
     private final Map<String, String> classNameToFileMap = new HashMap<>();
 
     // 缓存所有方法定义
-    private final Map<String, List<MethodDefinition>> methodDefinitions = new HashMap<>();
+    private final Map<String, List<MethodDescriptor>> methodDefinitions = new HashMap<>();
 
     // 缓存所有方法调用关系 (被调用方法 -> 调用者方法)
     private final Map<String, Set<String>> methodCallers = new HashMap<>();
@@ -45,19 +48,16 @@ public class CallChainAnalyzer {
     private final Set<String> restControllerMethods = new HashSet<>();
 
     // 缓存常量使用位置
-    private final Map<String, List<MethodIdentifier>> constantUsages = new HashMap<>();
+    private final Map<String, List<MethodDescriptor>> constantUsages = new HashMap<>();
 
     // 缓存字段声明（用于依赖注入）
     private final Map<String, Map<String, String>> fieldDeclarations = new HashMap<>();
-
-    // 预定义的常量名称列表
-    private final Set<String> constantNames = new HashSet<>();
 
     // 缓存接口中的REST映射信息
     private final Map<String, Map<String, String>> interfaceMethodMappings = new HashMap<>();
 
     // 缓存Controller方法的URL映射信息
-    private final Map<String, ControllerMethodInfo> controllerMethodUrls = new HashMap<>();
+    private final Map<String, ControllerMethodDescriptor> controllerMethodUrls = new HashMap<>();
 
     public CallChainAnalyzer(String projectPath, String searchType, String searchKey, boolean debug) {
         this.projectPath = projectPath;
@@ -251,7 +251,7 @@ public class CallChainAnalyzer {
 
                     String methodName = md.getNameAsString();
                     String methodSignature = getMethodSignature(md);
-                    MethodDefinition methodDef = new MethodDefinition(className, methodName, methodSignature, filePath);
+                    MethodDescriptor methodDef = new MethodDescriptor(className, methodName, methodSignature, filePath);
 
                     // 添加到方法定义缓存
                     methodDefinitions.computeIfAbsent(getMethodKey(className, methodName), k -> new ArrayList<>()).add(methodDef);
@@ -265,7 +265,7 @@ public class CallChainAnalyzer {
                         String classLevelMapping = extractClassLevelMapping(cu, className);
                         String methodLevelMapping = extractMethodLevelMappingFromMethodOrInterface(cu, md, className);
 
-                        ControllerMethodInfo controllerInfo = new ControllerMethodInfo(
+                        ControllerMethodDescriptor controllerInfo = new ControllerMethodDescriptor(
                                 className, methodName, methodSignature,
                                 classLevelMapping, methodLevelMapping, filePath);
 
@@ -290,7 +290,7 @@ public class CallChainAnalyzer {
                                     // 处理多种常量引用方式
                                     if ((scopeStr.endsWith("Constants") || scopeStr.equals(searchKey)) && SearchType.CONSTANT.equals(searchType)) {
                                         String constantName = fae.getNameAsString();
-                                        MethodIdentifier methodId = new MethodIdentifier(className, methodName, methodSignature, filePath);
+                                        MethodDescriptor methodId = new MethodDescriptor(className, methodName, methodSignature, filePath);
                                         constantUsages.computeIfAbsent(constantName, k -> new ArrayList<>()).add(methodId);
                                         if (debug)
                                             System.out.println("在方法 " + className + "." + methodName + " 中找到常量使用: " + constantName);
@@ -305,7 +305,7 @@ public class CallChainAnalyzer {
                                 String name = ne.getNameAsString();
                                 // 检查是否为预定义的常量名称
                                 if (name.equals(searchKey)) {
-                                    MethodIdentifier methodId = new MethodIdentifier(className, methodName, methodSignature, filePath);
+                                    MethodDescriptor methodId = new MethodDescriptor(className, methodName, methodSignature, filePath);
                                     constantUsages.computeIfAbsent(name, k -> new ArrayList<>()).add(methodId);
                                     if (debug)
                                         System.out.println("在方法 " + className + "." + methodName + " 中找到常量使用: " + name);
@@ -335,10 +335,10 @@ public class CallChainAnalyzer {
                                 if (debug) System.out.println("方法调用关系: " + callerKey + " -> " + calledMethodKey);
 
                                 // 检查是否是传入的查询关键字，Mapper类型关键字查询，或具体方法类型关键字查询
-                                if (("0".equals(searchType) && searchKey.equals(calledClassName)) ||
-                                        ("1".equals(searchType) && searchKey.equals(calledMethodKey))) {
+                                if ((SearchType.MAPPING.equals(searchType) && searchKey.equals(calledClassName)) ||
+                                        (SearchType.METHOD_CALL.equals(searchType) && searchKey.equals(calledMethodKey))) {
                                     // 添加调用关系到缓存 (被调用方法 -> 调用者方法)
-                                    MethodIdentifier methodId = new MethodIdentifier(className, methodName, methodSignature, filePath);
+                                    MethodDescriptor methodId = new MethodDescriptor(className, methodName, methodSignature, filePath);
                                     constantUsages.computeIfAbsent(calledMethodKey, k -> new ArrayList<>()).add(methodId);
                                     if (debug)
                                         System.out.println("在方法 " + className + "." + methodName + " 中找到常量使用: " + calledMethodName);
@@ -443,12 +443,12 @@ public class CallChainAnalyzer {
 
         Map<String, List<List<String>>> allCallChains = new HashMap<>();
 
-        List<MethodIdentifier> usages = new ArrayList<>();
+        List<MethodDescriptor> usages = new ArrayList<>();
         // 从缓存中获取常量使用位置
-        if ("2".equals(searchType)) {
+        if (SearchType.CONSTANT.equals(searchType)) {
             usages = constantUsages.getOrDefault(constantName, new ArrayList<>());
         } else {
-            for (List<MethodIdentifier> usageList : constantUsages.values()) {
+            for (List<MethodDescriptor> usageList : constantUsages.values()) {
                 usages.addAll(usageList);
             }
         }
@@ -456,7 +456,7 @@ public class CallChainAnalyzer {
         if (debug) System.out.println("找到常量 " + constantName + " 的 " + usages.size() + " 个使用位置");
 
         // 对每个使用位置，追踪调用链到REST控制器
-        for (MethodIdentifier usage : usages) {
+        for (MethodDescriptor usage : usages) {
             if (debug) System.out.println("正在追踪调用链，起始点: " + usage);
             Set<String> visited = new HashSet<>();
             List<List<String>> callChains = traceCallChainFromCache(usage, visited);
@@ -475,7 +475,7 @@ public class CallChainAnalyzer {
     /**
      * 使用缓存追踪从方法到REST控制器的调用链
      */
-    private List<List<String>> traceCallChainFromCache(MethodIdentifier methodId, Set<String> visited) {
+    private List<List<String>> traceCallChainFromCache(MethodDescriptor methodId, Set<String> visited) {
         String methodKey = getMethodKey(methodId.getClassName(), methodId.getMethodName());
 
         // 防止无限递归和循环依赖
@@ -512,10 +512,10 @@ public class CallChainAnalyzer {
                     String callerMethodName = parts[1];
 
                     // 获取该类的所有同名方法（处理重载）
-                    List<MethodDefinition> callerMethods = methodDefinitions.getOrDefault(callerKey, new ArrayList<>());
+                    List<MethodDescriptor> callerMethods = methodDefinitions.getOrDefault(callerKey, new ArrayList<>());
                     if (callerMethods.isEmpty()) {
                         // 如果没有精确匹配，尝试只匹配类名和方法名
-                        for (Map.Entry<String, List<MethodDefinition>> entry : methodDefinitions.entrySet()) {
+                        for (Map.Entry<String, List<MethodDescriptor>> entry : methodDefinitions.entrySet()) {
                             String key = entry.getKey();
                             if (key.startsWith(callerClassName + "#" + callerMethodName)) {
                                 callerMethods = entry.getValue();
@@ -524,8 +524,8 @@ public class CallChainAnalyzer {
                         }
                     }
 
-                    for (MethodDefinition callerMethod : callerMethods) {
-                        MethodIdentifier callerId = new MethodIdentifier(
+                    for (MethodDescriptor callerMethod : callerMethods) {
+                        MethodDescriptor callerId = new MethodDescriptor(
                                 callerMethod.getClassName(),
                                 callerMethod.getMethodName(),
                                 callerMethod.getMethodSignature(),
@@ -744,197 +744,17 @@ public class CallChainAnalyzer {
      * @return 完整的URL路径
      */
     public String getControllerMethodUrl(String methodIdentifier) {
-        ControllerMethodInfo info = controllerMethodUrls.get(methodIdentifier);
+        ControllerMethodDescriptor info = controllerMethodUrls.get(methodIdentifier);
         if (info != null) {
             return info.getFullUrl();
         }
         return "";
     }
 
-    /**
-     * 获取Controller方法的完整URL路径
-     *
-     * @param className       类名
-     * @param methodName      方法名
-     * @param methodSignature 方法签名
-     * @return 完整的URL路径
-     */
-    public String getControllerMethodUrl(String className, String methodName, String methodSignature) {
-        String methodKey = className + "#" + methodName + "#" + methodSignature;
-        return getControllerMethodUrl(methodKey);
-    }
-
-    /**
-     * 方法定义的表示
-     */
-    private static class MethodDefinition {
-        private final String className;
-        private final String methodName;
-        private final String methodSignature;
-        private final String filePath;
-
-        public MethodDefinition(String className, String methodName, String methodSignature, String filePath) {
-            this.className = className;
-            this.methodName = methodName;
-            this.methodSignature = methodSignature;
-            this.filePath = filePath;
-        }
-
-        public String getClassName() {
-            return className;
-        }
-
-        public String getMethodName() {
-            return methodName;
-        }
-
-        public String getMethodSignature() {
-            return methodSignature;
-        }
-
-        public String getFilePath() {
-            return filePath;
-        }
-
-        @Override
-        public String toString() {
-            return className + "#" + methodName + "#" + methodSignature;
-        }
-    }
-
-    /**
-     * Java方法的简单表示，包含其签名
-     */
-    private static class MethodIdentifier {
-        private final String className;
-        private final String methodName;
-        private final String methodSignature;
-        private final String filePath;
-
-        public MethodIdentifier(String className, String methodName, String methodSignature, String filePath) {
-            this.className = className;
-            this.methodName = methodName;
-            this.methodSignature = methodSignature;
-            this.filePath = filePath;
-        }
-
-        public String getClassName() {
-            return className;
-        }
-
-        public String getMethodName() {
-            return methodName;
-        }
-
-        public String getMethodSignature() {
-            return methodSignature;
-        }
-
-        public String getFilePath() {
-            return filePath;
-        }
-
-        @Override
-        public String toString() {
-            return className + "#" + methodName + "#" + methodSignature;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            MethodIdentifier that = (MethodIdentifier) obj;
-            return Objects.equals(className, that.className) &&
-                    Objects.equals(methodName, that.methodName) &&
-                    Objects.equals(methodSignature, that.methodSignature);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(className, methodName, methodSignature);
-        }
-    }
-
     private final static class SearchType {
         public static final String MAPPING = "0";
         public static final String METHOD_CALL = "1";
         public static final String CONSTANT = "2";
-    }
-    /**
-     * 存储Controller方法的URL映射信息
-     */
-    private static class ControllerMethodInfo {
-        private final String className;
-        private final String methodName;
-        private final String methodSignature;
-        private final String classLevelMapping;
-        private final String methodLevelMapping;
-        private final String filePath;
-
-        public ControllerMethodInfo(String className, String methodName, String methodSignature,
-                                    String classLevelMapping, String methodLevelMapping, String filePath) {
-            this.className = className;
-            this.methodName = methodName;
-            this.methodSignature = methodSignature;
-            this.classLevelMapping = classLevelMapping;
-            this.methodLevelMapping = methodLevelMapping;
-            this.filePath = filePath;
-        }
-
-        // 获取完整URL路径
-        public String getFullUrl() {
-            String classPath = normalizePath(classLevelMapping);
-            String methodPath = normalizePath(methodLevelMapping);
-
-            // 合并类路径和方法路径
-            if (classPath.isEmpty()) {
-                return methodPath;
-            } else if (methodPath.isEmpty()) {
-                return classPath;
-            } else {
-                return classPath + methodPath;
-            }
-        }
-
-        private String normalizePath(String path) {
-            if (path == null || path.isEmpty() || path.equals("/")) {
-                return "";
-            }
-
-            // 确保路径以/开头，不以/结尾
-            if (!path.startsWith("/")) {
-                path = "/" + path;
-            }
-            if (path.endsWith("/")) {
-                path = path.substring(0, path.length() - 1);
-            }
-            return path;
-        }
-
-        // getters...
-        public String getClassName() {
-            return className;
-        }
-
-        public String getMethodName() {
-            return methodName;
-        }
-
-        public String getMethodSignature() {
-            return methodSignature;
-        }
-
-        public String getClassLevelMapping() {
-            return classLevelMapping;
-        }
-
-        public String getMethodLevelMapping() {
-            return methodLevelMapping;
-        }
-
-        public String getFilePath() {
-            return filePath;
-        }
     }
 
 }

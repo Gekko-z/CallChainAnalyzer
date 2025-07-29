@@ -1,5 +1,7 @@
-package io.github.gekkoz;
+package io.github.gekkoz.callchain.cli;
 
+
+import io.github.gekkoz.CallChainAnalyzer;
 
 import java.util.HashSet;
 import java.util.List;
