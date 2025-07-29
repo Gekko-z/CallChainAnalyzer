@@ -6,11 +6,16 @@
     <parent>
         <groupId>io.github.gekko-z</groupId>
         <artifactId>call-chain-analyzer</artifactId>
-        <version>${project.vision}</version>
+        <version>0.1.1</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
+    <name>io.github.gekko-z:call-chain-analyzer-cli</name>
     <artifactId>call-chain-analyzer-cli</artifactId>
+
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -31,49 +36,14 @@
                 </configuration>
             </plugin>
 
-            <!-- Shade plugin to create a fat JAR with all dependencies -->
-            <!--            <plugin>-->
-            <!--                <groupId>org.apache.maven.plugins</groupId>-->
-            <!--                <artifactId>maven-shade-plugin</artifactId>-->
-            <!--                <version>3.2.4</version>-->
-            <!--                <executions>-->
-            <!--                    <execution>-->
-            <!--                        <phase>package</phase>-->
-            <!--                        <goals>-->
-            <!--                            <goal>shade</goal>-->
-            <!--                        </goals>-->
-            <!--                        <configuration>-->
-            <!--                            <transformers>-->
-            <!--                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">-->
-            <!--                                    <mainClass>io.github.gekkoz.callchain.cli.Main</mainClass>-->
-            <!--                                </transformer>-->
-            <!--                            </transformers>-->
-            <!--                        </configuration>-->
-            <!--                    </execution>-->
-            <!--                </executions>-->
-            <!--            </plugin>-->
-
-            <!-- Create a JAR with dependencies in a separate lib folder -->
-            <!--            <plugin>-->
-            <!--                <groupId>org.apache.maven.plugins</groupId>-->
-            <!--                <artifactId>maven-dependency-plugin</artifactId>-->
-            <!--                <version>3.1.2</version>-->
-            <!--                <executions>-->
-            <!--                    <execution>-->
-            <!--                        <id>copy-dependencies</id>-->
-            <!--                        <phase>package</phase>-->
-            <!--                        <goals>-->
-            <!--                            <goal>copy-dependencies</goal>-->
-            <!--                        </goals>-->
-            <!--                        <configuration>-->
-            <!--                            <outputDirectory>${project.build.directory}/lib</outputDirectory>-->
-            <!--                            <overWriteReleases>false</overWriteReleases>-->
-            <!--                            <overWriteSnapshots>false</overWriteSnapshots>-->
-            <!--                            <overWriteIfNewer>true</overWriteIfNewer>-->
-            <!--                        </configuration>-->
-            <!--                    </execution>-->
-            <!--                </executions>-->
-            <!--            </plugin>-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>2.8.2</version>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
 
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -90,21 +60,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-jar-plugin</artifactId>-->
-<!--                <version>3.2.0</version>-->
-<!--                <configuration>-->
-<!--                    <archive>-->
-<!--                        <manifest>-->
-<!--                            <addClasspath>true</addClasspath>-->
-<!--                            <classpathPrefix>lib/</classpathPrefix>-->
-<!--                            <mainClass>io.github.gekkoz.callchain.cli.Main</mainClass>-->
-<!--                        </manifest>-->
-<!--                    </archive>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
         </plugins>
     </build>
 
