@@ -59,6 +59,15 @@ public class CallChainAnalyzer {
     // 缓存Controller方法的URL映射信息
     private final Map<String, ControllerMethodDescriptor> controllerMethodUrls = new HashMap<>();
 
+    // 缓存接口实现信息
+    private final Map<String, Set<String>> interfaceImplementations = new HashMap<>();
+
+    // 缓存接口方法到实现方法的映射
+    private final Map<String, Set<String>> interfaceMethodToImplementationMethods = new HashMap<>();
+
+    // 缓存局部变量声明（用于类型推断）
+    private final Map<String, Map<String, String>> localVariableDeclarations = new HashMap<>();
+
     public CallChainAnalyzer(String projectPath, String searchType, String searchKey, boolean debug) {
         this.projectPath = projectPath;
         this.searchType = searchType;
@@ -227,6 +236,15 @@ public class CallChainAnalyzer {
                     if (cid.isInterface()) {
                         collectInterfaceMappings(cid, className);
                     }
+                    
+                    // 收集接口实现信息
+                    if (!cid.isInterface()) {
+                        // 收集该类实现的所有接口
+                        for (ClassOrInterfaceType implemented : cid.getImplementedTypes()) {
+                            String interfaceName = implemented.getNameAsString();
+                            interfaceImplementations.computeIfAbsent(interfaceName, k -> new HashSet<>()).add(className);
+                        }
+                    }
                 }
             }, null);
         }
@@ -317,21 +335,36 @@ public class CallChainAnalyzer {
                             public void visit(MethodCallExpr mce, Void arg) {
                                 super.visit(mce, arg);
 
-                                if (className == "DataSourceService") {
-                                    System.out.println("DataSourceService");
-                                    if (methodName == "getPageData") {
-                                        System.out.println("getPageData");
-                                    }
-                                }
                                 String callerKey = getMethodKey(className, methodName);
                                 String calledMethodName = mce.getNameAsString();
 
                                 // 获取被调用方法的类名
-                                String calledClassName = resolveCalledClass(className, mce);
+                                String calledClassName = resolveCalledClass(className, methodName, mce);
 
                                 // 添加调用关系到缓存 (被调用方法 -> 调用者方法)
                                 String calledMethodKey = getMethodKey(calledClassName, calledMethodName);
-                                methodCallers.computeIfAbsent(calledMethodKey, k -> new HashSet<>()).add(callerKey);
+                                
+                                // 如果被调用的是接口方法，则同时添加接口方法到调用者的关系
+                                if (interfaceImplementations.containsKey(calledClassName)) {
+                                    // 这是一个接口调用，需要记录接口方法被调用的关系
+                                    methodCallers.computeIfAbsent(calledMethodKey, k -> new HashSet<>()).add(callerKey);
+                                    
+                                    // 同时为每个实现类添加调用关系
+                                    Set<String> implementations = interfaceImplementations.get(calledClassName);
+                                    for (String implClass : implementations) {
+                                        String implMethodKey = getMethodKey(implClass, calledMethodName);
+                                        methodCallers.computeIfAbsent(implMethodKey, k -> new HashSet<>()).add(callerKey);
+                                        
+                                        // 建立接口方法到实现方法的映射
+                                        String interfaceMethodKey = calledMethodKey + "#" + calledMethodName;
+                                        String implMethodKeyFull = implMethodKey + "#" + calledMethodName;
+                                        interfaceMethodToImplementationMethods.computeIfAbsent(interfaceMethodKey, k -> new HashSet<>())
+                                                .add(implMethodKeyFull);
+                                    }
+                                } else {
+                                    methodCallers.computeIfAbsent(calledMethodKey, k -> new HashSet<>()).add(callerKey);
+                                }
+                                
                                 if (debug) System.out.println("方法调用关系: " + callerKey + " -> " + calledMethodKey);
 
                                 // 检查是否是传入的查询关键字，Mapper类型关键字查询，或具体方法类型关键字查询
@@ -343,6 +376,21 @@ public class CallChainAnalyzer {
                                     if (debug)
                                         System.out.println("在方法 " + className + "." + methodName + " 中找到常量使用: " + calledMethodName);
                                 }
+                            }
+                            
+                            @Override
+                            public void visit(VariableDeclarator vd, Void arg) {
+                                super.visit(vd, arg);
+                                
+                                // 记录局部变量声明，用于类型推断
+                                String varName = vd.getNameAsString();
+                                String varType = vd.getType().asString();
+                                
+                                // 存储局部变量类型信息
+                                localVariableDeclarations.computeIfAbsent(getMethodKey(className, methodName), k -> new HashMap<>())
+                                        .put(varName, varType);
+                                
+                                if (debug) System.out.println("局部变量声明: " + className + "." + methodName + " -> " + varName + " : " + varType);
                             }
                         }, null);
                     }
@@ -361,7 +409,7 @@ public class CallChainAnalyzer {
     /**
      * 解析被调用方法的类名
      */
-    private String resolveCalledClass(String callerClassName, MethodCallExpr mce) {
+    private String resolveCalledClass(String callerClassName, String callerMethodName, MethodCallExpr mce) {
         String calledMethodName = mce.getNameAsString();
         String calledClassName = callerClassName; // 默认为同类调用
 
@@ -396,9 +444,20 @@ public class CallChainAnalyzer {
                     fieldDeclarations.get(callerClassName).containsKey(scopeStr)) {
                 calledClassName = fieldDeclarations.get(callerClassName).get(scopeStr);
             }
+            // 处理局部变量（接口实例化后变量名改变的情况）
+            else if (localVariableDeclarations.containsKey(getMethodKey(callerClassName, callerMethodName)) &&
+                    localVariableDeclarations.get(getMethodKey(callerClassName, callerMethodName)).containsKey(scopeStr)) {
+                calledClassName = localVariableDeclarations.get(getMethodKey(callerClassName, callerMethodName)).get(scopeStr);
+            }
             // 处理其他类的实例调用
             else if (!scopeStr.equals(callerClassName)) {
                 calledClassName = scopeStr;
+            }
+            
+            // 处理接口类型的情况
+            // 如果calledClassName是一个接口，则返回接口名称，后续在调用链追踪中处理具体实现
+            if (interfaceImplementations.containsKey(calledClassName)) {
+                return calledClassName;
             }
         }
         // 如果没有作用域（即没有前缀），则默认为当前类内部调用
@@ -498,6 +557,16 @@ public class CallChainAnalyzer {
 
             // 从缓存中获取调用此方法的所有方法（调用者）
             Set<String> callers = methodCallers.getOrDefault(methodKey, new HashSet<>());
+            
+            // 如果这是一个接口方法，还需要获取通过接口调用的实现类方法调用者
+            String interfaceMethodKey = methodKey + "#" + methodId.getMethodName();
+            if (interfaceMethodToImplementationMethods.containsKey(interfaceMethodKey)) {
+                Set<String> implMethods = interfaceMethodToImplementationMethods.get(interfaceMethodKey);
+                for (String implMethod : implMethods) {
+                    String implMethodKey = implMethod.substring(0, implMethod.lastIndexOf("#"));
+                    callers.addAll(methodCallers.getOrDefault(implMethodKey, new HashSet<>()));
+                }
+            }
 
             if (debug) System.out.println("找到 " + callers.size() + " 个调用者: " + methodKey);
 
